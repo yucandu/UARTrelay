@@ -12,7 +12,9 @@
 #include <map>
 #include <esp_wifi.h>
 
-#define LEDpin 0
+#define LEDpin1 0
+#define LEDpin2 16
+#define LEDpin3 17
 // ==================== DATA STRUCTURES ====================
 typedef struct {
   uint16_t device_id;
@@ -159,7 +161,7 @@ void processSensorData(uint16_t device_id, float* sensor_data) {
 
 // ==================== ESP-NOW CALLBACKS ====================
 void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData, int len) {
-  digitalWrite(LEDpin, HIGH); // Turn on LED to indicate data received
+  digitalWrite(LEDpin2, HIGH); // Turn on LED to indicate data received
   const uint8_t *mac = info->src_addr;
   incomingrssi = info->rx_ctrl->rssi;
   Serial.print("Receiving incoming data with RSSI of: ");
@@ -184,7 +186,7 @@ void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData, in
       sendResponseToDevice(mac, message.device_id);
     }
   }
-  digitalWrite(LEDpin, LOW); // Turn off LED after processing
+  digitalWrite(LEDpin2, LOW); // Turn off LED after processing
 }
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -264,7 +266,7 @@ void printDeviceStatus() {
 
 void receiveUARTData() {
   while (Serial2.available()) {
-    digitalWrite(LEDpin, HIGH); // Turn on LED to indicate UART data received
+    digitalWrite(LEDpin1, HIGH); // Turn on LED to indicate UART data received
     char c = Serial2.read();
     if (c == '\n') {
       processReceivedData(uartBuffer);
@@ -272,7 +274,7 @@ void receiveUARTData() {
     } else {
       uartBuffer += c;
     }
-    digitalWrite(LEDpin, LOW); // Turn off LED after processing
+    digitalWrite(LEDpin1, LOW); // Turn off LED after processing
   }
 }
 
@@ -369,16 +371,28 @@ void setup() {
   Serial.begin(115200);
   Serial2.begin(9600, SERIAL_8N1, 15, 2);
   delay(1000);
-  pinMode(LEDpin, OUTPUT);
-  digitalWrite(LEDpin, LOW); // Turn off LED initially
+  pinMode(LEDpin1, OUTPUT);
+  pinMode(LEDpin2, OUTPUT);
+  pinMode(LEDpin3, OUTPUT);
+  digitalWrite(LEDpin1, LOW); // Turn off LED initially
+  digitalWrite(LEDpin2, LOW); // Turn off LED initially
+  digitalWrite(LEDpin3, LOW); // Turn off LED initially
   delay(100);
-  digitalWrite(LEDpin, HIGH); // Turn off LED initially
+  digitalWrite(LEDpin1, HIGH); // Turn off LED initially
+  digitalWrite(LEDpin2, HIGH); // Turn off LED initially
+  digitalWrite(LEDpin3, HIGH); // Turn off LED initially
   delay(100);
-  digitalWrite(LEDpin, LOW); // Turn off LED initially
+  digitalWrite(LEDpin1, LOW); // Turn off LED initially
+  digitalWrite(LEDpin2, LOW); // Turn off LED initially
+  digitalWrite(LEDpin3, LOW); // Turn off LED initially
   delay(100);
-  digitalWrite(LEDpin, HIGH); // Turn off LED initially
+  digitalWrite(LEDpin1, HIGH); // Turn off LED initially
+  digitalWrite(LEDpin2, HIGH); // Turn off LED initially
+  digitalWrite(LEDpin3, HIGH); // Turn off LED initially
   delay(100);
-  digitalWrite(LEDpin, LOW); // Turn off LED initially
+  digitalWrite(LEDpin1, LOW); // Turn off LED initially
+  digitalWrite(LEDpin2, LOW); // Turn off LED initially
+  digitalWrite(LEDpin3, LOW); // Turn off LED initially
   Serial.println("ESP32 ESP-NOW Receiver Starting...");
   
   // Set device as a Wi-Fi Station
@@ -427,7 +441,7 @@ void loop() {
 
 // ==================== UTILITY FUNCTIONS ====================
 void checkOfflineDevices() {
-  const unsigned long OFFLINE_THRESHOLD = 300000; // 5 minutes
+  const unsigned long OFFLINE_THRESHOLD = 30 * 60 * 1000; // 30 minutes
   unsigned long current_time = millis();
   
   for(auto& pair : known_devices) {
@@ -435,9 +449,10 @@ void checkOfflineDevices() {
     device_info_t& device = pair.second;
     
     if(current_time - device.last_seen > OFFLINE_THRESHOLD) {
-      // Device hasn't been seen for a while
-      // You could log this, send alerts, etc.
-      // Serial.printf("Warning: Device %d appears offline\n", device_id);
+        digitalWrite(LEDpin3, HIGH); // Turn on LED to indicate offline device
+    }
+    else {
+        digitalWrite(LEDpin3, LOW); // Turn off LED if device is online
     }
   }
 }
