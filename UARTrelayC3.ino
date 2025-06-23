@@ -76,18 +76,12 @@ void cbSyncTime(struct timeval *tv) { // callback function to show when NTP was 
   isSetNtp = true;
 }
 
-/*void initTime(String timezone){
-  configTzTime(timezone.c_str(), "192.168.50.197");
-  while (!isSetNtp) {
-        delay(250);
-        }
-}*/
 
 void initSNTP() {  
   sntp_set_sync_interval(10 * 60 * 1000UL);  // 1 hour
   sntp_set_time_sync_notification_cb(cbSyncTime);
   esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
-  esp_sntp_setservername(0, "pool.ntp.org");
+  esp_sntp_setservername(0, "192.168.50.197");
   esp_sntp_init();
   wait4SNTP();
   setTimezone();
