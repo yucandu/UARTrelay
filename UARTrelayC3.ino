@@ -40,7 +40,12 @@ float epaperTemp, epaperHum, epaperPres, epaperabshum, epapervBat, epaperRSSI;
 float neotemp = 0.0; // Temperature from NeoPixel strip
 float jojutemp = 0.0; // Temperature from Joju sensor
 float bridgetemp = 999.0; // Temperature from Bridge sensor
+unsigned long reconnectTime;
+WidgetBridge bridge2(V60);
 
+BLYNK_CONNECTED() {
+  bridge2.setAuthToken (fridgeauth);
+}
 
 // Received data from ESP32
 float received_fridgevbat = 0.0;
@@ -256,7 +261,7 @@ void processReceivedData(String data) {
       Serial.println("  Battery: " + String(received_fridgevbat, 2) + "V");
       Serial.println("  RSSI: " + String(received_fridgeRSSI) + "dBm");
       Serial.println("  Temperature: " + String(received_fridgetemp, 2) + "°C");
-      Blynk.disconnect();
+      /*Blynk.disconnect();
       Blynk.config(fridgeauth, IPAddress(192, 168, 50, 197), 8080);
       Blynk.connect();
       unsigned long startTime = millis();
@@ -269,31 +274,10 @@ void processReceivedData(String data) {
         Serial.println("Connected to Blynk with fridge auth!");
       } else {
         Serial.println("Failed to connect to Blynk with fridge auth.");
-      }
-      Blynk.virtualWrite(V1, fridgetemp);
-      Blynk.run();
-      Blynk.virtualWrite(V6, received_fridgevbat);
-      Blynk.run();
-      Blynk.virtualWrite(V4, received_fridgeRSSI);
-      Blynk.run();
-      Blynk.virtualWrite(V4, received_fridgeRSSI);
-      Blynk.run();
-      delay(100);
-      Blynk.disconnect();
-      Blynk.config(auth, IPAddress(192, 168, 50, 197), 8080);
-      Blynk.connect();
-      startTime = millis();
-      Serial.println("Connecting to Blynk with hubert auth...");
-      while (!Blynk.connected() && (millis() - startTime < 10000)) {
-        delay(1);
-        Serial.print(".");
-      }
-      if (Blynk.connected()) {
-        Serial.println("Connected to Blynk with hubert auth!");
-      } else {
-        Serial.println("Failed to connect to Blynk with hubert auth.");
-      }
-
+      }*/
+      bridge2.virtualWrite(V1, fridgetemp);
+      bridge2.virtualWrite(V6, received_fridgevbat);
+      bridge2.virtualWrite(V4, received_fridgeRSSI);
     }
   }
   else if (data.startsWith("EPAPER:")) {
@@ -330,11 +314,7 @@ void processReceivedData(String data) {
 }
 
 void setup() {
-  if (firstrun) {
-    firstrun = false;
-    delay(2000);
-    ESP.restart();
-  }
+
   Serial.begin(115200);
   //sntp_set_time_sync_notification_cb(cbSyncTime);
   Serial.println("ESP32C3 UART Started");
@@ -412,8 +392,8 @@ void setup() {
     Blynk.syncVirtual(V82);
     Blynk.syncVirtual(V83);
     Blynk.syncVirtual(V120); //flash button
-    mintemp = findLowestNonZero(bridgetemp, neotemp, jojutemp);
-    Blynk.virtualWrite(V118, mintemp);
+    //mintemp = findLowestNonZero(bridgetemp, neotemp, jojutemp);
+    //Blynk.virtualWrite(V118, mintemp);
   } else {
     Serial.println("Failed to connect to Blynk within timeout.");
   }
@@ -424,9 +404,25 @@ void setup() {
 }
 
 void loop() {
-  Blynk.run();
-  ArduinoOTA.handle();
-  // Send periodic data every 5 seconds
+  if (WiFi.status() == WL_CONNECTED) {Blynk.run();   ArduinoOTA.handle();}  //don't do Blynk unless wifi
+    else { //if no wifi, try to reconnect
+      digitalWrite(8, LOW);
+      if (millis() - reconnectTime > 30000) {
+            WiFi.disconnect();
+            WiFi.reconnect();
+            while (WiFi.status() != WL_CONNECTED) {
+              Serial.print(".");
+              delay(200);
+              digitalWrite(8, LOW);
+              delay(200);
+              digitalWrite(8, HIGH);
+            }
+            digitalWrite(8, HIGH);
+            reconnectTime = millis();
+      }
+
+    }
+
   if (millis() - lastSendTime >= sendInterval) {
     sendPeriodicData();
     lastSendTime = millis();
@@ -443,7 +439,8 @@ void loop() {
   every(30000) {
     mintemp = findLowestNonZero(bridgetemp, neotemp, jojutemp);
     Blynk.virtualWrite(V82, fridgetemp);
-    Blynk.virtualWrite(V118, mintemp);
+    if (mintemp < 70) {Blynk.virtualWrite(V118, mintemp);}
+
     //Blynk.virtualWrite(V111, epaperTemp);
     //Blynk.virtualWrite(V112, epaperHum);
     //Blynk.virtualWrite(V113, epaperPres);
