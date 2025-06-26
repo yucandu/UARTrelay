@@ -36,7 +36,7 @@ float windgust = 8.1;
 float fridgetemp = 4.2;
 float lightread = 350.0;
 unsigned long localTimeUnix = 1640995200;
-float epaperTemp, epaperHum, epaperPres, epaperabshum, epapervBat, epaperRSSI;
+float epaperTemp, epaperHum, epaperPres, epaperabshum, epapervBat, epaperRSSI, epaperDrain;
 float neotemp = 0.0; // Temperature from NeoPixel strip
 float jojutemp = 0.0; // Temperature from Joju sensor
 float bridgetemp = 999.0; // Temperature from Bridge sensor
@@ -45,6 +45,37 @@ WidgetBridge bridge2(V60);
 
 BLYNK_CONNECTED() {
   bridge2.setAuthToken (fridgeauth);
+}
+
+
+
+WidgetTerminal terminal(V70);
+
+void printLocalTime() {
+  time_t rawtime;
+  struct tm* timeinfo;
+  time(&rawtime);
+  timeinfo = localtime(&rawtime);
+  terminal.print(asctime(timeinfo));
+}
+
+
+BLYNK_WRITE(V70) {
+  if (String("help") == param.asStr()) {
+    terminal.println("==List of available commands:==");
+    terminal.println("wifi");
+    terminal.println("==End of list.==");
+  }
+  if (String("wifi") == param.asStr()) {
+    terminal.print("Connected to: ");
+    terminal.println(ssid);
+    terminal.print("IP address:");
+    terminal.println(WiFi.localIP());
+    terminal.print("Signal strength: ");
+    terminal.println(WiFi.RSSI());
+    printLocalTime();
+  }
+    terminal.flush();
 }
 
 // Received data from ESP32
@@ -224,14 +255,20 @@ void sendPeriodicData() {
 }
 
 void receiveUARTData() {
-  while (Serial1.available()) {
-    char c = Serial1.read();
-    if (c == '\n') {
-      processReceivedData(uartBuffer);
-      uartBuffer = "";
-    } else {
-      uartBuffer += c;
-    }
+  if (Serial1.available()) {
+    analogWrite(8, 20);
+    while (Serial1.available()) {
+      char c = Serial1.read();
+      Serial.print("Received: 0x");
+      Serial.println((uint8_t)c, HEX);
+      if (c == '\n') {
+        processReceivedData(uartBuffer);
+        uartBuffer = "";
+      } else {
+        uartBuffer += c;
+      }
+   }
+  analogWrite(8, 0);
   }
 }
 
@@ -251,24 +288,12 @@ void processReceivedData(String data) {
       // Update the fridgetemp variable with new reading
       fridgetemp = received_fridgetemp;
       
-      Serial.println("Received fridge update:");
-      Serial.println("  Battery: " + String(received_fridgevbat, 2) + "V");
-      Serial.println("  RSSI: " + String(received_fridgeRSSI) + "dBm");
-      Serial.println("  Temperature: " + String(received_fridgetemp, 2) + "°C");
-      /*Blynk.disconnect();
-      Blynk.config(fridgeauth, IPAddress(192, 168, 50, 197), 8080);
-      Blynk.connect();
-      unsigned long startTime = millis();
-      Serial.println("Connecting to Blynk with fridge auth...");
-      while (!Blynk.connected() && (millis() - startTime < 10000)) {
-        delay(1);
-        Serial.print(".");
-      }
-      if (Blynk.connected()) {
-        Serial.println("Connected to Blynk with fridge auth!");
-      } else {
-        Serial.println("Failed to connect to Blynk with fridge auth.");
-      }*/
+      terminal.println("Received fridge update:");
+      terminal.println("  Temperature: " + String(received_fridgetemp, 2) + "°C");
+      terminal.println("  Battery: " + String(received_fridgevbat, 2) + "V");
+      terminal.println("  RSSI: " + String(received_fridgeRSSI) + "dBm");
+      printLocalTime();
+      terminal.flush();
       bridge2.virtualWrite(V1, fridgetemp);
       bridge2.virtualWrite(V6, received_fridgevbat);
       bridge2.virtualWrite(V4, received_fridgeRSSI);
@@ -291,25 +316,34 @@ void processReceivedData(String data) {
       epaperTemp = payload.substring(secondComma + 1, thirdComma).toFloat();
       epaperHum = payload.substring(thirdComma + 1, fourthComma).toFloat();
       epaperPres = payload.substring(fourthComma + 1, fifthComma).toFloat();
-      epaperabshum = payload.substring(fifthComma + 1).toFloat();
-      Serial.println("Received epaper update:");
-      Serial.println("  Battery: " + String(epapervBat, 2) + "V");
-      Serial.println("  RSSI: " + String(epaperRSSI) + "dBm");
-      Serial.println("  Temperature: " + String(epaperTemp, 2) + "°C");
-      Serial.println("  Humidity: " + String(epaperHum, 2) + "%");
-      Serial.println("  Pressure: " + String(epaperPres, 2) + " hPa");
-      Serial.println("  Absolute Humidity: " + String(epaperabshum, 2) + " m/s");
+      epaperabshum = payload.substring(fifthComma + 1, sixthComma).toFloat();
+      epaperDrain = payload.substring(sixthComma + 1).toFloat();
+      terminal.println("Received epaper update:");
+      terminal.println("  Battery: " + String(epapervBat, 2) + "V");
+      terminal.println("  RSSI: " + String(epaperRSSI) + "dBm");
+      terminal.println("  Temperature: " + String(epaperTemp, 2) + "°C");
+      terminal.println("  Humidity: " + String(epaperHum, 2) + "%");
+      terminal.println("  Pressure: " + String(epaperPres, 2) + " hPa");
+      terminal.println("  Absolute Humidity: " + String(epaperabshum, 2) + " m/s");
+      terminal.println("  Drain: " + String(epaperDrain, 2) + " mV/D");
+      printLocalTime();
+      terminal.flush();
       Blynk.virtualWrite(V111, epaperTemp);
-      Blynk.virtualWrite(V114, epaperabshum);
+      Blynk.virtualWrite(V112, epaperHum);
       Blynk.virtualWrite(V113, epaperPres);
+      Blynk.virtualWrite(V114, epaperabshum);
       Blynk.virtualWrite(V115, epapervBat);
+      Blynk.virtualWrite(V116, epaperDrain);
+      Blynk.virtualWrite(V117, epaperRSSI);
     }
   }
+  //digitalWrite(8, LOW);
 }
 
 void setup() {
-
+  delay(1000);
   Serial.begin(115200);
+  delay(500);
   //sntp_set_time_sync_notification_cb(cbSyncTime);
   Serial.println("ESP32C3 UART Started");
   Serial1.begin(9600, SERIAL_8N1, 21, 20);
@@ -323,18 +357,18 @@ void setup() {
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
     delay(200);
-    digitalWrite(8, LOW);
+    digitalWrite(8, HIGH);
     delay(200);
-    digitalWrite(8, HIGH);
+    digitalWrite(8, LOW);
   }
-    delay(500);
-    digitalWrite(8, LOW);
-    delay(500);
+
     digitalWrite(8, HIGH);
     delay(500);
     digitalWrite(8, LOW);
     delay(500);
     digitalWrite(8, HIGH);
+    delay(500);
+    digitalWrite(8, LOW);
 
 
   Blynk.config(auth, IPAddress(192, 168, 50, 197), 8080);
@@ -394,24 +428,46 @@ void setup() {
   ArduinoOTA.setHostname("ESP32C3-UART");
   ArduinoOTA.begin();
   Serial.println("Arduino OTA ready");
+  terminal.println("***ESP-NOW UART RELAY v1.1***");
+  terminal.print("Connected to ");
+  terminal.println(ssid);
+  terminal.print("IP address: ");
+  terminal.println(WiFi.localIP());
+  printLocalTime();
+  terminal.print("Compiled on: ");
+  terminal.print(__DATE__);
+  terminal.print(" at ");
+  terminal.println(__TIME__);
+  terminal.flush();
+    digitalWrite(8, HIGH);
+    delay(100);
+    digitalWrite(8, LOW);
+    delay(100);
+    digitalWrite(8, HIGH);
+    delay(100);
+    digitalWrite(8, LOW);
+    delay(100);
+    digitalWrite(8, HIGH);
+    delay(100);
+    digitalWrite(8, LOW);
 
 }
 
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {Blynk.run();   ArduinoOTA.handle();}  //don't do Blynk unless wifi
     else { //if no wifi, try to reconnect
-      digitalWrite(8, LOW);
+      digitalWrite(8, HIGH);
       if (millis() - reconnectTime > 30000) {
             WiFi.disconnect();
             WiFi.reconnect();
             while (WiFi.status() != WL_CONNECTED) {
               Serial.print(".");
               delay(200);
-              digitalWrite(8, LOW);
-              delay(200);
               digitalWrite(8, HIGH);
+              delay(200);
+              digitalWrite(8, LOW);
             }
-            digitalWrite(8, HIGH);
+            digitalWrite(8, LOW);
             reconnectTime = millis();
       }
 
@@ -424,6 +480,8 @@ void loop() {
   
   // Check for incoming UART data
   receiveUARTData();
+
+
   
   // Update sensor readings and time here
   // updateSensorReadings();
