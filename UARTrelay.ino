@@ -13,8 +13,8 @@
 #include <esp_wifi.h>
 
 #define LEDpin1 0
-#define LEDpin2 16
-#define LEDpin3 17
+#define LEDpin2 5
+#define LEDpin3 18
 // ==================== DATA STRUCTURES ====================
 typedef struct {
   uint16_t device_id;
@@ -72,6 +72,7 @@ float epaperTemp = 0.0;
 float epaperHum = 0.0;
 float epaperPres = 0.0;
 float epaperabshum = 0.0;
+float epaperDrain;
 float epaperRSSI = 0.0; // RSSI from e-paper display
 float incomingrssi;
 RTC_NOINIT_ATTR  bool firstrun = true;
@@ -128,6 +129,7 @@ void processSensorData(uint16_t device_id, float* sensor_data) {
       if(sensor_data[2] != 0.0) Serial.printf("Pressure: %.2f hPa\n", sensor_data[2]); {epaperPres = sensor_data[2];}
       if(sensor_data[3] != 0.0) Serial.printf("Battery: %.2fV\n", sensor_data[3]); {epapervBat = sensor_data[3];}
       if(sensor_data[4] != 0.0) Serial.printf("Abshum: %.2f m/s\n", sensor_data[4]); {epaperabshum = sensor_data[4];}
+      if(sensor_data[5] != 0.0) Serial.printf("Drain: %.2f m/s\n", sensor_data[5]); {epaperDrain = sensor_data[5];}
       sendEpaperUpdate();
       break;
       
@@ -354,7 +356,8 @@ void sendEpaperUpdate() {
   epaperPacket += String(epaperTemp, 2) + ",";
   epaperPacket += String(epaperHum, 2) + ",";
   epaperPacket += String(epaperPres, 2) + ",";
-  epaperPacket += String(epaperabshum, 2);
+  epaperPacket += String(epaperabshum, 2) + ",";
+  epaperPacket += String(epaperDrain, 2);
   epaperPacket += "\n";
   Serial2.print(epaperPacket);
   Serial.println("Sent epaper update to ESP32C3");
@@ -363,13 +366,9 @@ void sendEpaperUpdate() {
 
 // ==================== MAIN FUNCTIONS ====================
 void setup() {
-  if (firstrun) {
-    firstrun = false;
-    delay(2000);
-    ESP.restart();
-  }
+  delay(2000); // Wait for serial monitor to open
   Serial.begin(115200);
-  Serial2.begin(9600, SERIAL_8N1, 15, 2);
+  Serial2.begin(9600, SERIAL_8N1, 16, 19);
   delay(1000);
   pinMode(LEDpin1, OUTPUT);
   pinMode(LEDpin2, OUTPUT);
