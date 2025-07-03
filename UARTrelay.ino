@@ -51,6 +51,7 @@ unsigned long localTimeUnix = 0;
 float pm25in = 0.0;
 float pm25out = 0.0;
 float bridgehum = 0.0;
+float outhumidex;
 float bridgepres = 0.0;
 float iaq = 0.0;
 float windspeed = 0.0;
@@ -97,6 +98,7 @@ void generateResponseData(uint16_t device_id, float* response_data) {
       response_data[2] = mintemp;              
       response_data[3] = windspeed;
       response_data[4] = windgust;
+      response_data[5] = outhumidex;
       break;
       
     case 1002: // Temperature only device
@@ -286,15 +288,15 @@ void processReceivedData(String data) {
     String payload = data.substring(9); // Remove "PERIODIC:"
     
     // Split the comma-separated values
-    int values[17];
+    int values[18];
     int valueCount = 0;
     int lastIndex = 0;
     
     for (int i = 0; i <= payload.length(); i++) {
       if (i == payload.length() || payload.charAt(i) == ',') {
-        if (valueCount < 17) {
+        if (valueCount < 18) {
           String valueStr = payload.substring(lastIndex, i);
-          if (valueCount == 16) { // Last value is unix timestamp (unsigned long)
+          if (valueCount == 17) { // Last value is unix timestamp (unsigned long)
             if (localTimeUnix == valueStr.toInt()) {Serial.println("Error: received duplicate timestamp!");}
             localTimeUnix = valueStr.toInt();
             struct timeval now = {
@@ -321,6 +323,7 @@ void processReceivedData(String data) {
               case 13: windgust = valueStr.toFloat(); break;
               case 14: break;
               case 15: lightread = valueStr.toFloat(); break;
+              case 16: outhumidex = valueStr.toFloat(); break;
             }
           }
           valueCount++;
