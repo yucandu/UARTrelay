@@ -34,6 +34,7 @@ float kw = 0.25;
 float mintemp = 18.5;
 float windgust = 8.1;
 float fridgetemp = 4.2;
+float outhumidex, inhumidex;
 float lightread = 350.0;
 unsigned long localTimeUnix = 1640995200;
 float epaperTemp, epaperHum, epaperPres, epaperabshum, epapervBat, epaperRSSI, epaperDrain;
@@ -168,6 +169,9 @@ BLYNK_WRITE(V62) {
 BLYNK_WRITE(V63) {
   bridgehum = param.asFloat();
 }
+BLYNK_WRITE(V65) {
+  outhumidex = param.asFloat();
+}
 
 BLYNK_WRITE(V66) {
   pm25out = param.asFloat();
@@ -247,6 +251,7 @@ void sendPeriodicData() {
   dataPacket += String(windgust, 2) + ",";
   dataPacket += String(fridgetemp, 2) + ",";
   dataPacket += String(lightread, 2) + ",";
+  dataPacket += String(outhumidex, 2) + ",";
   dataPacket += String(localTimeUnix);
   dataPacket += "\n";
   
@@ -492,6 +497,7 @@ void loop() {
     mintemp = findLowestNonZero(bridgetemp, neotemp, jojutemp);
     Blynk.virtualWrite(V82, fridgetemp);
     if (mintemp < 70) {Blynk.virtualWrite(V118, mintemp);}
+    Blynk.virtualWrite(V119, WiFi.RSSI());
 
     //Blynk.virtualWrite(V111, epaperTemp);
     //Blynk.virtualWrite(V112, epaperHum);
